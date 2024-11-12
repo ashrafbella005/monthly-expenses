@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مراقبة المصروفات المنزلية</title>
+    <style>
+        body { font-family: Arial, sans-serif; direction: rtl; text-align: right; }
+        .container { max-width: 600px; margin: 20px auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; }
+        button { padding: 10px 15px; margin-top: 10px; }
+        .summary { margin-top: 20px; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>مراقبة المصروفات المنزلية</h1>
+    
+    <div class="form-group">
+        <label for="monthlyBudget">الميزانية الشهرية</label>
+        <input type="number" id="monthlyBudget" placeholder="أدخل الميزانية الشهرية">
+    </div>
+
+    <h3>إضافة بند جديد</h3>
+    
+    <div class="form-group">
+        <label for="itemName">اسم البند</label>
+        <input type="text" id="itemName" placeholder="أدخل اسم البند">
+    </div>
+    
+    <div class="form-group">
+        <label for="importance">مدى الأهمية</label>
+        <select id="importance">
+            <option value="عالي">عالي</option>
+            <option value="متوسط">متوسط</option>
+            <option value="منخفض">منخفض</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="amount">المبلغ</label>
+        <input type="number" id="amount" placeholder="أدخل المبلغ">
+    </div>
+    
+    <div class="form-group">
+        <label for="recurrence">يتكرر كل كم يوم</label>
+        <input type="number" id="recurrence" placeholder="أدخل عدد الأيام">
+    </div>
+    
+    <button onclick="addItem()">إضافة بند</button>
+    <button onclick="clearData()">مسح البيانات للشهر الجديد</button>
+
+    <div class="summary">
+        <h3>التقرير</h3>
+        <p id="summaryText">المصروفات الشهرية: 0 | الميزانية المتبقية: 0</p>
+    </div>
+    
+    <button onclick="saveReport()">حفظ التقرير كملف نصي</button>
+    <button onclick="printReport()">طباعة التقرير كـ PDF</button>
+</div>
+
+<script>
+    let items = [];
+
+    // تحميل البيانات المخزنة عند بداية التشغيل
+    window.onload = function() {
+        loadSavedData();
+    };
+
+    function addItem() {
+        const itemName = document.getElementById("itemName").value;
+        const importance = document.getElementById("importance").value;
+        const amount = parseFloat(document.getElementById("amount").value);
+        const recurrence = parseInt(document.getElementById("recurrence").value);
+        const monthlyBudget = parseFloat(document.getElementById("monthlyBudget").value);
+        
+        if (!itemName || isNaN(amount) || isNaN(recurrence) || isNaN(monthlyBudget)) {
+            alert("يرجى إدخال كافة البيانات بشكل صحيح.");
+            return;
+        }
+
+        const daysInMonth = 30;
+        const repetitions = Math.floor(daysInMonth / recurrence);  // عدد مرات التكرار داخل الشهر
+        const monthlyExpense = amount * repetitions;
+
+        items.push({ itemName, importance, amount, recurrence, repetitions, monthlyExpense });
+
+        updateSummary(monthlyBudget);
+        saveData();  // حفظ البيانات بعد التحديث
+        
+        document.getElementById("itemName").value = "";
+        document.getElementById("amount").value = "";
+        document.getElementById("recurrence").value = "";
+    }
+
+    function updateSummary(monthlyBudget) {
+        let totalExpense = items.reduce((acc, item) => acc + item.monthlyExpense, 0);
+        let remainingBudget = monthlyBudget - totalExpense;
+        
+        document.getElementById("summaryText").innerText = `المصروفات الشهرية: ${totalExpense} | الميزانية المتبقية: ${remainingBudget}`;
+    }
+
+    function saveData() {
+        localStorage.setItem("budgetData", JSON.stringify({ monthlyBudget: document.getElementById("monthlyBudget").value, items }));
+    }
+
+    function loadSavedData() {
+        const savedData = localStorage.getItem("budgetData");
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            document.getElementById("monthlyBudget").value = data.monthlyBudget;
+            items = data.items || [];
+            updateSummary(parseFloat(data.monthlyBudget));
+        }
+    }
+
+    function clearData() {
+        if (confirm("هل أنت متأكد من مسح البيانات؟")) {
+            localStorage.removeItem("budgetData");
+            items = [];
+            document.getElementById("monthlyBudget").value = "";
+            document.getElementById("summaryText").innerText = "المصروفات الشهرية: 0 | الميزانية المتبقية: 0";
+            alert("تم مسح البيانات بنجاح.");
+        }
+    }
+
+    function saveReport() {
+        let report = `الميزانية الشهرية: ${document.getElementById("monthlyBudget").value}\n\n`;
+        report += "تفاصيل البنود:\n";
+        items.forEach(item => {
+            report += `- ${item.itemName} (أهمية: ${item.importance}, مبلغ: ${item.amount}, يتكرر كل ${item.recurrence} يوم، تكرارات داخل الشهر: ${item.repetitions})\n`;
+        });
+        
+        const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "تقرير_المصروفات.txt";
+        link.click();
+    }
+
+    function printReport() {
+    const monthlyBudget = document.getElementById("monthlyBudget").value;
+    const totalExpense = items.reduce((acc, item) => acc + item.monthlyExpense, 0);
+    const remainingBudget = monthlyBudget - totalExpense;
+
+    let reportContent = `
+        <h1>الميزانية الشهرية: ${monthlyBudget}</h1>
+        <h3>التقرير</h3>
+        <p>المصروفات الشهرية: ${totalExpense} | الميزانية المتبقية: ${remainingBudget}</p>
+        <h3>تفاصيل البنود</h3>
+        <ul style="list-style-type: none; padding: 0;">`;
+
+    items.forEach(item => {
+        reportContent += `<li>${item.monthlyExpense} - ${item.itemName} (أهمية: ${item.importance}, مبلغ: ${item.amount}, يتكرر كل ${item.recurrence} يوم، تكرارات داخل الشهر: ${item.repetitions})</li>`;
+    });
+
+    reportContent += `</ul>`;
+
+    const printWindow = window.open("", "", "width=800,height=600");
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>تقرير المصروفات</title>
+                <style>body { font-family: Arial, sans-serif; direction: rtl; }</style>
+            </head>
+            <body>${reportContent}</body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+</script>
+
+</body>
+</html>
