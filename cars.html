@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>قاعدة بيانات السيارات</title>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial; direction: rtl; margin: 20px; background: #f9f9f9; }
+    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 5px; }
+    table { width: 100%; margin-bottom: 20px; background: white; }
+    input, select, button { margin: 5px; padding: 6px; font-size: 14px; }
+    .actions button { margin-left: 5px; }
+    .modal { display: none; position: fixed; z-index: 999; padding: 20px;
+             top: 50%; left: 50%; transform: translate(-50%, -50%);
+             background: white; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+    .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+               background: rgba(0,0,0,0.4); z-index: 998; }
+    .modal input, .modal select { width: 90%; margin: 5px 0; }
+    h2 { background: #eee; padding: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>📁 تصدير البيانات</h2>
+<button onclick="exportToExcel('carRecords')">📤 تصدير جدول العملاء</button>
+<button onclick="exportToExcel('listings')">📤 تصدير جدول المعروض</button>
+
+<h2>🚗 الجدول 1: سجلات السيارات الخاصة بالعملاء</h2>
+<div>
+  <input id="type1" placeholder="نوع العربية">
+  <input id="model1" placeholder="موديلها">
+  <input id="inDate" type="date" placeholder="تاريخ الدخول">
+  <input id="outDate" type="date" placeholder="تاريخ الخروج">
+  <input id="client" placeholder="اسم العميل">
+  <input id="phone" placeholder="رقم الهاتف">
+  <input id="ownerId" placeholder="رقم بطاقة المالك">
+  <input id="violations" placeholder="المخالفات">
+  <button onclick="addCarRecord()">➕ إضافة</button>
+  <input id="search1" placeholder="🔍 بحث..." oninput="displayCarRecords()">
+</div>
+<table id="table1">
+  <thead>
+    <tr>
+      <th>نوع</th><th>موديل</th><th>دخول</th><th>خروج</th><th>عميل</th><th>هاتف</th><th>بطاقة</th><th>مخالفات</th><th>إجراءات</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<h2>📦 الجدول 2: السيارات المعروضة للبيع أو الإيجار</h2>
+<div>
+  <input id="type2" placeholder="نوع العربية">
+  <select id="status">
+    <option value="بيع">بيع</option>
+    <option value="إيجار">إيجار</option>
+  </select>
+  <input id="model2" placeholder="الموديل">
+  <input id="price" placeholder="السعر">
+  <select id="availability">
+    <option value="متاحة">متاحة</option>
+    <option value="مأخوذة">مأخوذة</option>
+  </select>
+  <button onclick="addListing()">➕ إضافة</button>
+  <input id="search2" placeholder="🔍 بحث..." oninput="displayListings()">
+</div>
+<table id="table2">
+  <thead>
+    <tr>
+      <th>نوع</th><th>الحالة</th><th>الموديل</th><th>السعر</th><th>التوفر</th><th>إجراءات</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- نافذة التعديل -->
+<div class="overlay" id="overlay"></div>
+<div class="modal" id="editModal">
+  <h3>✏️ تعديل السجل</h3>
+  <div id="editFields"></div>
+  <button onclick="saveEdit()">💾 حفظ</button>
+  <button onclick="closeModal()">❌ إلغاء</button>
+</div>
+
+<script>
+  const db = new Dexie("CarDB");
+  db.version(1).stores({
+    carRecords: '++id, type, model, inDate, outDate, client, phone, ownerId, violations',
+    listings: '++id, type, status, model, price, availability'
+  });
+
+  let currentEdit = { table: '', id: null };
+
+  async function addCarRecord() {
+    await db.carRecords.add({
+      type: type1.value, model: model1.value, inDate: inDate.value,
+      outDate: outDate.value, client: client.value, phone: phone.value,
+      ownerId: ownerId.value, violations: violations.value
+    });
+    displayCarRecords();
+  }
+
+  async function displayCarRecords() {
+    const q = search1.value.trim();
+    let data = await db.carRecords.toArray();
+    if (q) data = data.filter(row => Object.values(row).some(val => val && val.toString().includes(q)));
+    const tbody = document.querySelector('#table1 tbody');
+    tbody.innerHTML = '';
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.type}</td><td>${row.model}</td><td>${row.inDate}</td><td>${row.outDate}</td>
+        <td>${row.client}</td><td>${row.phone}</td><td>${row.ownerId}</td><td>${row.violations}</td>
+        <td>
+          <button onclick="openModal('carRecords', ${row.id})">✏️</button>
+          <button onclick="deleteRecord('carRecords', ${row.id})">🗑️</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addListing() {
+    await db.listings.add({
+      type: type2.value, status: status.value, model: model2.value,
+      price: price.value, availability: availability.value
+    });
+    displayListings();
+  }
+
+  async function displayListings() {
+    const q = search2.value.trim();
+    let data = await db.listings.toArray();
+    if (q) data = data.filter(row => Object.values(row).some(val => val && val.toString().includes(q)));
+    const tbody = document.querySelector('#table2 tbody');
+    tbody.innerHTML = '';
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.type}</td><td>${row.status}</td><td>${row.model}</td><td>${row.price}</td><td>${row.availability}</td>
+        <td>
+          <button onclick="openModal('listings', ${row.id})">✏️</button>
+          <button onclick="deleteRecord('listings', ${row.id})">🗑️</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function deleteRecord(table, id) {
+    if (confirm("هل تريد حذف هذا السجل؟")) {
+      await db[table].delete(id);
+      table === 'carRecords' ? displayCarRecords() : displayListings();
+    }
+  }
+
+  async function openModal(table, id) {
+    currentEdit = { table, id };
+    const data = await db[table].get(id);
+    const container = document.getElementById('editFields');
+    container.innerHTML = '';
+    for (const key in data) {
+      if (key === 'id') continue;
+      const input = document.createElement(key === 'status' || key === 'availability' ? 'select' : 'input');
+      input.name = key;
+      input.value = data[key];
+      input.placeholder = key;
+      if (key === 'status') input.innerHTML = `<option value="بيع">بيع</option><option value="إيجار">إيجار</option>`;
+      if (key === 'availability') input.innerHTML = `<option value="متاحة">متاحة</option><option value="مأخوذة">مأخوذة</option>`;
+      container.appendChild(input);
+    }
+    document.getElementById('overlay').style.display = 'block';
+    document.getElementById('editModal').style.display = 'block';
+  }
+
+  async function saveEdit() {
+    const inputs = document.querySelectorAll('#editFields input, #editFields select');
+    const updated = {};
+    inputs.forEach(input => updated[input.name] = input.value);
+    await db[currentEdit.table].update(currentEdit.id, updated);
+    closeModal();
+    currentEdit.table === 'carRecords' ? displayCarRecords() : displayListings();
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('editModal').style.display = 'none';
+  }
+
+  async function exportToExcel(table) {
+    const data = await db[table].toArray();
+    if (data.length === 0) return alert("لا توجد بيانات للتصدير.");
+    const worksheet = XLSX.utils.json_to_sheet(data.map(({id, ...rest}) => rest));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, table);
+    XLSX.writeFile(workbook, `${table}.xlsx`);
+  }
+
+  // تحميل البيانات عند البدء
+  displayCarRecords();
+  displayListings();
+</script>
+
+</body>
+</html>
