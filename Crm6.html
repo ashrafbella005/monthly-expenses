@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>CRM وجدولة الإعلانات - نسخة كاملة</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { direction: rtl; font-family: Arial; background: #f4f4f4; padding: 20px; }
+    section { background: white; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 5px #ccc; }
+    input, button, select, textarea { padding: 8px; margin: 5px 0; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    .alert { background: #ffb703; padding: 10px; font-weight: bold; animation: blink 1s infinite; }
+    @keyframes blink { 50% { background: #ffd166; } }
+    .stat-box { background: #caf0f8; padding: 10px; margin: 5px; text-align: center; }
+    .actions button { margin: 0 5px; }
+  </style>
+</head>
+<body>
+
+<h2>📋 العملاء</h2>
+<section>
+  <input id="searchClient" placeholder="🔍 بحث عن عميل...">
+  <input id="name" placeholder="اسم العميل" />
+  <input id="phone" placeholder="رقم الهاتف" />
+  <input id="utm_source" placeholder="UTM المصدر" />
+  <input id="utm_campaign" placeholder="UTM الحملة" />
+  <input id="follow_date" type="date" />
+  <button onclick="addClient()">➕ إضافة / تعديل عميل</button>
+  <div id="alerts"></div>
+  <table id="clientsTable">
+    <thead>
+      <tr><th>اسم</th><th>هاتف</th><th>المصدر</th><th>الحملة</th><th>متابعة</th><th>إجراء</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<h2>📆 الإعلانات</h2>
+<section>
+  <input id="searchAd" placeholder="🔍 بحث في الإعلانات...">
+  <select id="platform"><option>فيسبوك</option><option>لينكد إن</option><option>تيك توك</option><option>يوتيوب</option></select>
+  <input id="budget" type="number" placeholder="ميزانية الإعلان" />
+  <input id="date" type="date" />
+  <textarea id="notes" placeholder="ملاحظات..."></textarea>
+  <button onclick="addAd()">➕ إضافة / تعديل إعلان</button>
+  <table id="adsTable">
+    <thead>
+      <tr><th>منصة</th><th>ميزانية</th><th>تاريخ</th><th>ملاحظات</th><th>إجراء</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<h2>📊 إحصائيات</h2>
+<section>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <div class="stat-box" id="totalClients">👥 العملاء: 0</div>
+    <div class="stat-box" id="adsCount">📣 الإعلانات: 0</div>
+    <div class="stat-box" id="fbCount">📘 فيسبوك: 0</div>
+    <div class="stat-box" id="ytCount">▶️ يوتيوب: 0</div>
+  </div>
+  <canvas id="chart" height="100"></canvas>
+  <button onclick="exportToExcel()">📤 تصدير التقارير</button>
+</section>
+
+<script>
+let clients = JSON.parse(localStorage.getItem("clients") || "[]");
+let ads = JSON.parse(localStorage.getItem("ads") || "[]");
+let editIndexClient = -1, editIndexAd = -1;
+
+function renderClients() {
+  const tbody = document.querySelector("#clientsTable tbody");
+  tbody.innerHTML = "";
+  const today = new Date().toISOString().split("T")[0];
+  let hasAlert = false;
+
+  clients.forEach((c, i) => {
+    const row = document.createElement("tr");
+    if (document.getElementById("searchClient").value && !JSON.stringify(c).includes(document.getElementById("searchClient").value)) return;
+
+    row.innerHTML = `
+      <td>${c.name}</td><td>${c.phone}</td><td>${c.source}</td>
+      <td>${c.campaign}</td><td>${c.follow_date}</td>
+      <td class="actions">
+        <button onclick="editClient(${i})">✏️</button>
+        <button onclick="deleteClient(${i})">🗑️</button>
+      </td>`;
+    tbody.appendChild(row);
+    if (c.follow_date === today) hasAlert = true;
+  });
+
+  document.getElementById("alerts").innerHTML = hasAlert ? `<div class="alert">🚨 يوجد عملاء للمتابعة اليوم!</div>` : "";
+  if (hasAlert) new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+  document.getElementById("totalClients").textContent = `👥 العملاء: ${clients.length}`;
+}
+
+function addClient() {
+  const c = {
+    name: name.value,
+    phone: phone.value,
+    source: utm_source.value,
+    campaign: utm_campaign.value,
+    follow_date: follow_date.value
+  };
+
+  if (editIndexClient >= 0) {
+    clients[editIndexClient] = c;
+    editIndexClient = -1;
+  } else {
+    clients.push(c);
+  }
+
+  localStorage.setItem("clients", JSON.stringify(clients));
+  renderClients();
+  name.value = phone.value = utm_source.value = utm_campaign.value = follow_date.value = "";
+}
+
+function editClient(i) {
+  const c = clients[i];
+  name.value = c.name;
+  phone.value = c.phone;
+  utm_source.value = c.source;
+  utm_campaign.value = c.campaign;
+  follow_date.value = c.follow_date;
+  editIndexClient = i;
+}
+
+function deleteClient(i) {
+  if (confirm("هل أنت متأكد من حذف هذا العميل؟")) {
+    clients.splice(i, 1);
+    localStorage.setItem("clients", JSON.stringify(clients));
+    renderClients();
+  }
+}
+
+function renderAds() {
+  const tbody = document.querySelector("#adsTable tbody");
+  tbody.innerHTML = "";
+  let fb = 0, yt = 0;
+
+  ads.forEach((a, i) => {
+    if (document.getElementById("searchAd").value && !JSON.stringify(a).includes(document.getElementById("searchAd").value)) return;
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${a.platform}</td><td>${a.budget}</td><td>${a.date}</td><td>${a.notes}</td>
+      <td class="actions">
+        <button onclick="editAd(${i})">✏️</button>
+        <button onclick="deleteAd(${i})">🗑️</button>
+      </td>`;
+    tbody.appendChild(row);
+    if (a.platform === "فيسبوك") fb++;
+    if (a.platform === "يوتيوب") yt++;
+  });
+
+  document.getElementById("adsCount").textContent = `📣 الإعلانات: ${ads.length}`;
+  document.getElementById("fbCount").textContent = `📘 فيسبوك: ${fb}`;
+  document.getElementById("ytCount").textContent = `▶️ يوتيوب: ${yt}`;
+  drawChart();
+}
+
+function addAd() {
+  const ad = {
+    platform: platform.value,
+    budget: budget.value,
+    date: date.value,
+    notes: notes.value
+  };
+
+  if (editIndexAd >= 0) {
+    ads[editIndexAd] = ad;
+    editIndexAd = -1;
+  } else {
+    ads.push(ad);
+  }
+
+  localStorage.setItem("ads", JSON.stringify(ads));
+  renderAds();
+  budget.value = date.value = notes.value = "";
+}
+
+function editAd(i) {
+  const ad = ads[i];
+  platform.value = ad.platform;
+  budget.value = ad.budget;
+  date.value = ad.date;
+  notes.value = ad.notes;
+  editIndexAd = i;
+}
+
+function deleteAd(i) {
+  if (confirm("هل أنت متأكد من حذف هذا الإعلان؟")) {
+    ads.splice(i, 1);
+    localStorage.setItem("ads", JSON.stringify(ads));
+    renderAds();
+  }
+}
+
+function drawChart() {
+  const platforms = {};
+  ads.forEach(ad => platforms[ad.platform] = (platforms[ad.platform] || 0) + 1);
+  const ctx = document.getElementById('chart').getContext('2d');
+  if (window.myChart) window.myChart.destroy();
+  window.myChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(platforms),
+      datasets: [{
+        label: 'عدد الإعلانات',
+        data: Object.values(platforms),
+        backgroundColor: '#00b4d8'
+      }]
+    }
+  });
+}
+
+function exportToExcel() {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clients), "العملاء");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ads), "الإعلانات");
+  XLSX.writeFile(wb, "crm_report.xlsx");
+}
+
+document.getElementById("searchClient").addEventListener("input", renderClients);
+document.getElementById("searchAd").addEventListener("input", renderAds);
+
+renderClients();
+renderAds();
+</script>
+</body>
+</html>
