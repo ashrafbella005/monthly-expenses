@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>نظام CRM وجدولة الإعلانات</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      direction: rtl;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 20px;
+    }
+    h2 {
+      background: #0077b6;
+      color: white;
+      padding: 10px;
+    }
+    section {
+      margin-bottom: 30px;
+      background: white;
+      padding: 15px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    input, select, button, textarea {
+      margin: 5px 0;
+      padding: 8px;
+      font-size: 14px;
+      width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: #caf0f8;
+      padding: 15px;
+      border-radius: 6px;
+      flex: 1;
+      text-align: center;
+    }
+    .alert {
+      background: #ffb703;
+      padding: 10px;
+      color: #000;
+      margin-bottom: 10px;
+      font-weight: bold;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      50% { background: #ffd166; }
+    }
+  </style>
+</head>
+<body>
+
+<h2>📋 العملاء</h2>
+<section>
+  <input id="name" placeholder="اسم العميل" />
+  <input id="phone" placeholder="رقم الهاتف" />
+  <input id="utm_source" placeholder="UTM المصدر" />
+  <input id="utm_campaign" placeholder="UTM الحملة" />
+  <input id="follow_date" type="date" />
+  <button onclick="addClient()">➕ إضافة عميل</button>
+  <div id="alerts"></div>
+  <table id="clientsTable">
+    <thead>
+      <tr><th>اسم</th><th>هاتف</th><th>المصدر</th><th>الحملة</th><th>متابعة</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<h2>📆 جدولة الإعلانات</h2>
+<section>
+  <select id="platform">
+    <option>فيسبوك</option>
+    <option>لينكد إن</option>
+    <option>تيك توك</option>
+    <option>يوتيوب</option>
+  </select>
+  <input id="budget" type="number" placeholder="ميزانية الإعلان (جنيه)" />
+  <input id="date" type="date" />
+  <textarea id="notes" placeholder="ملاحظات..."></textarea>
+  <button onclick="addAd()">➕ إضافة إعلان</button>
+  <table id="adsTable">
+    <thead>
+      <tr><th>منصة</th><th>ميزانية</th><th>تاريخ</th><th>ملاحظات</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<h2>📊 إحصائيات</h2>
+<section>
+  <div class="stats">
+    <div class="stat-box" id="totalClients">👥 العملاء: 0</div>
+    <div class="stat-box" id="adsCount">📣 الإعلانات: 0</div>
+    <div class="stat-box" id="fbCount">📘 فيسبوك: 0</div>
+    <div class="stat-box" id="ytCount">▶️ يوتيوب: 0</div>
+  </div>
+  <canvas id="chart" height="100"></canvas>
+  <button onclick="exportToExcel()">📤 تصدير التقارير</button>
+</section>
+
+<script>
+  let clients = JSON.parse(localStorage.getItem("clients") || "[]");
+  let ads = JSON.parse(localStorage.getItem("ads") || "[]");
+
+  function renderClients() {
+    const tbody = document.querySelector("#clientsTable tbody");
+    tbody.innerHTML = "";
+    const today = new Date().toISOString().split("T")[0];
+    let hasAlert = false;
+
+    clients.forEach(c => {
+      const row = `<tr>
+        <td>${c.name}</td><td>${c.phone}</td><td>${c.source}</td>
+        <td>${c.campaign}</td><td>${c.follow_date}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+
+      if (c.follow_date === today) hasAlert = true;
+    });
+
+    document.getElementById("alerts").innerHTML = hasAlert
+      ? `<div class="alert">🚨 يوجد عملاء للمتابعة اليوم!</div>`
+      : "";
+    if (hasAlert) new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+
+    document.getElementById("totalClients").textContent = `👥 العملاء: ${clients.length}`;
+  }
+
+  function renderAds() {
+    const tbody = document.querySelector("#adsTable tbody");
+    tbody.innerHTML = "";
+    let fb = 0, yt = 0;
+
+    ads.forEach(a => {
+      const row = `<tr>
+        <td>${a.platform}</td><td>${a.budget}</td>
+        <td>${a.date}</td><td>${a.notes}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+      if (a.platform === "فيسبوك") fb++;
+      if (a.platform === "يوتيوب") yt++;
+    });
+
+    document.getElementById("adsCount").textContent = `📣 الإعلانات: ${ads.length}`;
+    document.getElementById("fbCount").textContent = `📘 فيسبوك: ${fb}`;
+    document.getElementById("ytCount").textContent = `▶️ يوتيوب: ${yt}`;
+    drawChart();
+  }
+
+  function addClient() {
+    const c = {
+      name: name.value,
+      phone: phone.value,
+      source: utm_source.value,
+      campaign: utm_campaign.value,
+      follow_date: follow_date.value
+    };
+    clients.push(c);
+    localStorage.setItem("clients", JSON.stringify(clients));
+    renderClients();
+    name.value = phone.value = utm_source.value = utm_campaign.value = follow_date.value = "";
+  }
+
+  function addAd() {
+    const ad = {
+      platform: platform.value,
+      budget: budget.value,
+      date: date.value,
+      notes: notes.value
+    };
+    ads.push(ad);
+    localStorage.setItem("ads", JSON.stringify(ads));
+    renderAds();
+    budget.value = date.value = notes.value = "";
+  }
+
+  function drawChart() {
+    const platforms = {};
+    ads.forEach(ad => platforms[ad.platform] = (platforms[ad.platform] || 0) + 1);
+    const ctx = document.getElementById('chart').getContext('2d');
+    if (window.myChart) window.myChart.destroy();
+    window.myChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(platforms),
+        datasets: [{
+          label: 'عدد الإعلانات',
+          data: Object.values(platforms),
+          backgroundColor: '#00b4d8'
+        }]
+      }
+    });
+  }
+
+  function exportToExcel() {
+    const wb = XLSX.utils.book_new();
+
+    const clientSheet = XLSX.utils.json_to_sheet(clients);
+    const adSheet = XLSX.utils.json_to_sheet(ads);
+
+    XLSX.utils.book_append_sheet(wb, clientSheet, "العملاء");
+    XLSX.utils.book_append_sheet(wb, adSheet, "الإعلانات");
+
+    XLSX.writeFile(wb, "crm_report.xlsx");
+  }
+
+  renderClients();
+  renderAds();
+
+  // قراءة UTM من URL عند الفتح لأول مرة
+  window.addEventListener("load", () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("utm_source")) {
+      utm_source.value = params.get("utm_source");
+      utm_campaign.value = params.get("utm_campaign") || "";
+    }
+  });
+</script>
+</body>
+</html>
