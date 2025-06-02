@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>نظام CRM متقدم مع تتبع UTM وتنبيهات</title>
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    margin: 20px auto;
+    max-width: 1000px;
+  }
+  h1, h2 {
+    text-align: center;
+  }
+  label {
+    display: block;
+    margin-top: 10px;
+  }
+  input, select, textarea, button {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    box-sizing: border-box;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: center;
+  }
+  th {
+    background: #007acc;
+    color: white;
+  }
+  .actions button {
+    margin: 2px;
+    padding: 5px 10px;
+  }
+  #alerts {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    padding: 10px;
+    margin-top: 20px;
+    border-radius: 4px;
+  }
+  #charts {
+    display: flex;
+    gap: 20px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  canvas {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  .export-btns {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>نظام CRM متقدم مع تتبع UTM وتنبيهات</h1>
+
+<section>
+  <h2>إضافة / تعديل عميل</h2>
+  <form id="clientForm">
+    <input type="hidden" id="clientId" />
+    <label>الاسم:
+      <input type="text" id="name" required />
+    </label>
+    <label>رقم الهاتف:
+      <input type="tel" id="phone" required />
+    </label>
+    <label>البريد الإلكتروني:
+      <input type="email" id="email" />
+    </label>
+    <label>الحالة:
+      <select id="status">
+        <option value="مهتم">مهتم</option>
+        <option value="جاري المتابعة">جاري المتابعة</option>
+        <option value="تم البيع">تم البيع</option>
+        <option value="غير مهتم">غير مهتم</option>
+      </select>
+    </label>
+    <label>ملاحظات:
+      <textarea id="notes" rows="3"></textarea>
+    </label>
+    <button type="submit">حفظ العميل</button>
+  </form>
+</section>
+
+<section id="alerts" style="display:none;"></section>
+
+<section>
+  <h2>قائمة العملاء</h2>
+  <input type="text" id="search" placeholder="بحث في العملاء..." />
+  <table id="clientsTable" >
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الهاتف</th>
+        <th>البريد الإلكتروني</th>
+        <th>الحالة</th>
+        <th>تاريخ أول تواصل</th>
+        <th>آخر تحديث</th>
+        <th>مصدر الإعلان (UTM)</th>
+        <th>الإجراءات</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div class="export-btns">
+    <button onclick="exportToExcel()">📤 تصدير بيانات العملاء</button>
+  </div>
+</section>
+
+<section>
+  <h2>تقارير أداء الإعلانات</h2>
+  <div id="charts">
+    <canvas id="utmCampaignChart" width="400" height="300"></canvas>
+    <canvas id="clientsStatusChart" width="400" height="300"></canvas>
+  </div>
+  <div class="export-btns">
+    <button onclick="exportReportToExcel()">📤 تصدير تقرير الإعلانات</button>
+  </div>
+</section>
+
+<script src="https://unpkg.com/dexie@3.2.2/dist/dexie.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  // قاعدة بيانات محلية باستخدام Dexie.js
+  const db = new Dexie("CRM_DB");
+  db.version(1).stores({
+    clients: '++id, name, phone, email, status, notes, firstContact, lastUpdate, utm_source, utm_medium, utm_campaign, utm_content, utm_term'
+  });
+
+  // استخراج UTM من الرابط وتخزينها في localStorage عند أول زيارة
+  function saveUTMParams() {
+    const params = new URLSearchParams(window.location.search);
+    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    let saved = false;
+    utmKeys.forEach(key => {
+      if(params.get(key)) {
+        localStorage.setItem(key, params.get(key));
+        saved = true;
+      }
+    });
+    return saved;
+  }
+  saveUTMParams();
+
+  // استرجاع بيانات UTM من localStorage
+  function getStoredUTM() {
+    return {
+      utm_source: localStorage.getItem('utm_source') || '',
+      utm_medium: localStorage.getItem('utm_medium') || '',
+      utm_campaign: localStorage.getItem('utm_campaign') || '',
+      utm_content: localStorage.getItem('utm_content') || '',
+      utm_term: localStorage.getItem('utm_term') || '',
+    };
+  }
+
+  // تنبيهات متابعة العملاء (عملاء لم يحدث لهم تحديث منذ 7 أيام وما فوق في حالة مهتم أو جاري المتابعة)
+  async function showAlerts() {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const clients = await db.clients.filter(c => 
+      (c.status === "مهتم" || c.status === "جاري المتابعة") && 
+      new Date(c.lastUpdate) < sevenDaysAgo
+    ).toArray();
+
+    const alertsDiv = document.getElementById('alerts');
+    if(clients.length === 0) {
+      alertsDiv.style.display = "none";
+      alertsDiv.innerHTML = "";
+      return;
+    }
+    alertsDiv.style.display = "block";
+    alertsDiv.innerHTML = `<strong>تنبيهات متابعة: ${clients.length} عميل يحتاج متابعة.</strong><br>`;
+    clients.forEach(c => {
+      alertsDiv.innerHTML += `• ${c.name} (${c.phone}) آخر تحديث: ${new Date(c.lastUpdate).toLocaleDateString()}<br>`;
+    });
+  }
+
+  // إضافة / تعديل عميل
+  const form = document.getElementById('clientForm');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = document.getElementById('clientId').value;
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const status = document.getElementById('status').value;
+    const notes = document.getElementById('notes').value.trim();
+
+    if(!name || !phone) {
+      alert("الاسم ورقم الهاتف مطلوبان");
+      return;
+    }
+
+    const utm = getStoredUTM();
+
+    const now = new Date().toISOString();
+    if(id) {
+      // تعديل
+      await db.clients.update(parseInt(id), {
+        name, phone, email, status, notes,
+        lastUpdate: now
+      });
+    } else {
+      // إضافة جديد
+      await db.clients.add({
+        name, phone, email, status, notes,
+        firstContact: now,
+        lastUpdate: now,
+        ...utm
+      });
+    }
+    form.reset();
+    document.getElementById('clientId').value = "";
+    loadClients();
+    showAlerts();
+    updateCharts();
+  });
+
+  // تحميل وعرض العملاء في الجدول
+  async function loadClients() {
+    let clients = await db.clients.toArray();
+    const search = document.getElementById('search').value.trim().toLowerCase();
+    if(search) {
+      clients = clients.filter(c => 
+        c.name.toLowerCase().includes(search) || 
+        c.phone.includes(search) || 
+        (c.email && c.email.toLowerCase().includes(search)) ||
+        (c.status && c.status.toLowerCase().includes(search))
+      );
+    }
+    const tbody = document.querySelector('#clientsTable tbody');
+    tbody.innerHTML = "";
+    clients.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${c.name}</td>
+        <td>${c.phone}</td>
+        <td>${c.email || "-"}</td>
+        <td>${c.status}</td>
+        <td>${new Date(c.firstContact).toLocaleDateString()}</td>
+        <td>${new Date(c.lastUpdate).toLocaleDateString()}</td>
+        <td>${c.utm_source ? escapeHTML(c.utm_source) : "-"}</td>
+        <td class="actions">
+          <button onclick="editClient(${c.id})">✏️</button>
+          <button onclick="deleteClient(${c.id})">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // دالة تهريب HTML لمنع XSS في عرض UTM
+  function escapeHTML(text) {
+    return text.replace(/[&<>"']/g, function(m) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+    });
+  }
+
+  // تعديل عميل - تعبئة النموذج
+  async function editClient(id) {
+    const client = await db.clients.get(id);
+    if(!client) return;
+    document.getElementById('clientId').value = client.id;
+    document.getElementById('name').value = client.name;
+    document.getElementById('phone').value = client.phone;
+    document.getElementById('email').value = client.email || "";
+    document.getElementById('status').value = client.status;
+    document.getElementById('notes').value = client.notes || "";
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  // حذف عميل مع تأكيد
+  async function deleteClient(id) {
+    if(confirm("هل أنت متأكد من حذف هذا العميل؟")) {
+      await db.clients.delete(id);
+      loadClients();
+      showAlerts();
+      updateCharts();
+    }
+  }
+
+  // البحث الحي
+  document.getElementById('search').addEventListener('input', loadClients);
+
+  // إعدادات الرسوم البيانية
+  let utmCampaignChart, clientsStatusChart;
+  function updateCharts() {
+    db.clients.toArray().then(clients => {
+      // بيانات حملة UTM
+      const campaignCount = {};
+      clients.forEach(c => {
+        const camp = c.utm_campaign || "غير محدد";
+        campaignCount[camp] = (campaignCount[camp] || 0) + 1;
+      });
+      const campaignLabels = Object.keys(campaignCount);
+      const campaignData = Object.values(campaignCount);
+
+      // حالة العملاء
+      const statusCount = {};
+      clients.forEach(c => {
+        statusCount[c.status] = (statusCount[c.status] || 0) + 1;
+      });
+      const statusLabels = Object.keys(statusCount);
+      const statusData = Object.values(statusCount);
+
+      // تحديث أو إنشاء الرسم الأول
+      if(utmCampaignChart) {
+        utmCampaignChart.data.labels = campaignLabels;
+        utmCampaignChart.data.datasets[0].data = campaignData;
+        utmCampaignChart.update();
+      } else {
+        const ctx1 = document.getElementById('utmCampaignChart').getContext('2d');
+        utmCampaignChart = new Chart(ctx1, {
+          type: 'bar',
+          data: {
+            labels: campaignLabels,
+            datasets: [{
+              label: 'عدد العملاء حسب حملة UTM',
+              data: campaignData,
+              backgroundColor: 'rgba(0, 123, 204, 0.7)'
+            }]
+          },
+          options: {
+            responsive: false,
+            scales: {
+              y: { beginAtZero: true, precision: 0 }
+            }
+          }
+        });
+      }
+
+      // تحديث أو إنشاء الرسم الثاني
+      if(clientsStatusChart) {
+        clientsStatusChart.data.labels = statusLabels;
+        clientsStatusChart.data.datasets[0].data = statusData;
+        clientsStatusChart.update();
+      } else {
+        const ctx2 = document.getElementById('clientsStatusChart').getContext('2d');
+        clientsStatusChart = new Chart(ctx2, {
+          type: 'pie',
+          data: {
+            labels: statusLabels,
+            datasets: [{
+              label: 'حالة العملاء',
+              data: statusData,
+              backgroundColor: [
+                '#007bff','#28a745','#ffc107','#dc3545','#6c757d'
+              ]
+            }]
+          },
+          options: {
+            responsive: false,
+          }
+        });
+      }
+    });
+  }
+
+  // تصدير بيانات العملاء إلى Excel باستخدام SheetJS
+  async function exportToExcel() {
+    const clients = await db.clients.toArray();
+    const ws_data = [
+      ["الاسم", "الهاتف", "البريد الإلكتروني", "الحالة", "تاريخ أول تواصل", "آخر تحديث", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]
+    ];
+    clients.forEach(c => {
+      ws_data.push([
+        c.name, c.phone, c.email || "-", c.status, 
+        new Date(c.firstContact).toLocaleDateString(),
+        new Date(c.lastUpdate).toLocaleDateString(),
+        c.utm_source || "-", c.utm_medium || "-", c.utm_campaign || "-", c.utm_content || "-", c.utm_term || "-"
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "عملاء");
+    XLSX.writeFile(wb, "CRM_Clients.xlsx");
+  }
+
+  // تصدير تقرير الإعلانات إلى Excel
+  async function exportReportToExcel() {
+    const clients = await db.clients.toArray();
+
+    // حساب بيانات تقرير الحملات
+    const campaignCount = {};
+    clients.forEach(c => {
+      const camp = c.utm_campaign || "غير محدد";
+      campaignCount[camp] = (campaignCount[camp] || 0) + 1;
+    });
+
+    // حساب حالة العملاء
+    const statusCount = {};
+    clients.forEach(c => {
+      statusCount[c.status] = (statusCount[c.status] || 0) + 1;
+    });
+
+    // إنشاء مصفوفة التقرير
+    const ws_data = [
+      ["تقرير أداء الحملات الإعلانية"],
+      [],
+      ["الحملة", "عدد العملاء"],
+      ...Object.entries(campaignCount),
+      [],
+      ["حالة العميل", "العدد"],
+      ...Object.entries(statusCount)
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "تقرير الحملات");
+    XLSX.writeFile(wb, "CRM_AdReport.xlsx");
+  }
+
+  // تحميل البيانات عند بدء الصفحة
+  window.onload = () => {
+    loadClients();
+    showAlerts();
+    updateCharts();
+  };
+</script>
+
+</body>
+</html>
