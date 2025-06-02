@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>CRM مع تقرير أداء الحملات ومتابعة حالة العملاء</title>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      direction: rtl;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    input, select, button {
+      margin: 5px 0;
+      padding: 6px;
+      font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    button {
+      cursor: pointer;
+    }
+    h3 {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h2>إضافة عميل جديد مع بيانات UTM وحالة العميل</h2>
+  <div>
+    <label>اسم العميل:
+      <input id="clientName" placeholder="أدخل اسم العميل" />
+    </label>
+    <label>رقم الهاتف:
+      <input id="clientPhone" placeholder="أدخل رقم الهاتف" />
+    </label>
+    <label>حالة العميل:
+      <select id="clientStatus">
+        <option value="جديد">جديد</option>
+        <option value="قيد المتابعة">قيد المتابعة</option>
+        <option value="مغلق">مغلق</option>
+      </select>
+    </label>
+    <h3>معطيات UTM (يمكن تعديلها يدوياً)</h3>
+    <label>utm_source:
+      <input id="utm_source" placeholder="مثلاً facebook" />
+    </label>
+    <label>utm_medium:
+      <input id="utm_medium" placeholder="مثلاً cpc" />
+    </label>
+    <label>utm_campaign:
+      <input id="utm_campaign" placeholder="مثلاً summer2025" />
+    </label>
+    <label>utm_content:
+      <input id="utm_content" placeholder="مثلاً banner1" />
+    </label>
+    <label>utm_term:
+      <input id="utm_term" placeholder="مثلاً shoes" />
+    </label>
+    <button onclick="addClient()">➕ إضافة العميل</button>
+    <button onclick="exportClients()">📤 تصدير العملاء إلى Excel</button>
+  </div>
+
+  <h2>قائمة العملاء</h2>
+  <table id="clientsTable">
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الهاتف</th>
+        <th>الحالة</th>
+        <th>utm_source</th>
+        <th>utm_medium</th>
+        <th>utm_campaign</th>
+        <th>utm_content</th>
+        <th>utm_term</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>تقرير إحصائي لأداء الحملات</h3>
+  <table id="campaignReportTable">
+    <thead>
+      <tr>
+        <th>اسم الحملة (utm_campaign)</th>
+        <th>عدد العملاء</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  // حفظ معطيات UTM من الرابط إلى localStorage
+  function saveUTMFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(key => {
+      const val = params.get(key);
+      if (val) localStorage.setItem(key, val);
+    });
+  }
+  saveUTMFromURL();
+
+  // إعداد قاعدة بيانات IndexedDB
+  const db = new Dexie("SimpleCRM");
+  db.version(1).stores({
+    clients: "++id, name, phone, status, utm_source, utm_medium, utm_campaign, utm_content, utm_term"
+  });
+
+  // تحميل معطيات UTM من localStorage وتعبئتها
+  window.onload = () => {
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(key => {
+      const val = localStorage.getItem(key);
+      if (val) document.getElementById(key).value = val;
+    });
+    displayClients();
+    displayCampaignReport();
+  };
+
+  // إضافة عميل جديد
+  async function addClient() {
+    const name = document.getElementById("clientName").value.trim();
+    const phone = document.getElementById("clientPhone").value.trim();
+    const status = document.getElementById("clientStatus").value;
+    if (!name || !phone) {
+      alert("يرجى إدخال اسم العميل ورقم الهاتف");
+      return;
+    }
+
+    const clientData = {
+      name,
+      phone,
+      status,
+      utm_source: document.getElementById("utm_source").value.trim(),
+      utm_medium: document.getElementById("utm_medium").value.trim(),
+      utm_campaign: document.getElementById("utm_campaign").value.trim(),
+      utm_content: document.getElementById("utm_content").value.trim(),
+      utm_term: document.getElementById("utm_term").value.trim(),
+    };
+
+    await db.clients.add(clientData);
+    alert("تم إضافة العميل بنجاح ✅");
+    clearForm();
+    displayClients();
+    displayCampaignReport();
+  }
+
+  // تنظيف الحقول
+  function clearForm() {
+    document.getElementById("clientName").value = "";
+    document.getElementById("clientPhone").value = "";
+    document.getElementById("clientStatus").value = "جديد";
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(key => {
+      document.getElementById(key).value = "";
+    });
+  }
+
+  // عرض العملاء
+  async function displayClients() {
+    const clients = await db.clients.toArray();
+    const tbody = document.querySelector("#clientsTable tbody");
+    tbody.innerHTML = "";
+    clients.forEach(c => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${c.name}</td>
+        <td>${c.phone}</td>
+        <td>${c.status}</td>
+        <td>${c.utm_source || ""}</td>
+        <td>${c.utm_medium || ""}</td>
+        <td>${c.utm_campaign || ""}</td>
+        <td>${c.utm_content || ""}</td>
+        <td>${c.utm_term || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // تقرير إحصائي حسب utm_campaign
+  async function displayCampaignReport() {
+    const clients = await db.clients.toArray();
+    const report = {};
+    clients.forEach(c => {
+      const camp = c.utm_campaign || "(غير محدد)";
+      report[camp] = (report[camp] || 0) + 1;
+    });
+
+    const tbody = document.querySelector("#campaignReportTable tbody");
+    tbody.innerHTML = "";
+    for (const [camp, count] of Object.entries(report)) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${camp}</td><td>${count}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // تصدير بيانات العملاء إلى Excel
+  async function exportClients() {
+    const clients = await db.clients.toArray();
+    if (clients.length === 0) {
+      alert("لا توجد بيانات للتصدير.");
+      return;
+    }
+    const exportData = clients.map(({id, ...rest}) => rest);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "العملاء");
+    XLSX.writeFile(workbook, "clients.xlsx");
+  }
+</script>
+</body>
+</html>
