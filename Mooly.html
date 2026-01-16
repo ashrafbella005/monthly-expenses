@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الخطة المالية الشهرية</title>
+<style>
+/* ======== التصميم السينمائي ======== */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    color: #fff;
+    margin: 0;
+    padding: 0;
+}
+.container {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+}
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+header h1 {
+    font-size: 2em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 8px #000;
+}
+button {
+    background-color: #e67e22;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 1em;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+button:hover {
+    background-color: #d35400;
+}
+.card {
+    background: rgba(0,0,0,0.4);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    transition: 0.3s;
+}
+.card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.7);
+}
+.card h2 {
+    border-bottom: 2px solid #e67e22;
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+.card h2 img {
+    width: 25px;
+    margin-left: 8px;
+}
+input[type=number] {
+    width: 100px;
+    padding: 5px;
+    border-radius: 5px;
+    border: none;
+    text-align: right;
+}
+.progress-container {
+  margin: 10px 0;
+}
+.progress-bar {
+  width: 0%;
+  height: 25px;
+  border-radius: 12px;
+  background-color: #27ae60;
+  transition: width 0.5s, background-color 0.5s;
+}
+
+/* استثمار */
+#investment {
+  background: linear-gradient(135deg, #2980b9, #8e44ad);
+}
+
+/* ==== الطباعة A4 ==== */
+@media print {
+    body { background: #fff; color: #000; }
+    .card { background: #f9f9f9; color: #000; box-shadow: none; }
+    button { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📄 الخطة المالية الشهرية</h1>
+    <button id="printBtn">🖨️ طباعة A4</button>
+  </header>
+
+  <!-- الدخل -->
+  <section class="card" id="income">
+    <h2>💰 الدخل الشهري <img src="https://img.icons8.com/emoji/48/000000/money-bag-emoji.png"/></h2>
+    <p>💼 راتب: <span id="salary">7000</span> جنيه</p>
+    <p>💵 دعم: <span id="support">15000</span> جنيه</p>
+    <p>إجمالي الدخل: <span id="totalIncome">22000</span> جنيه</p>
+  </section>
+
+  <!-- المصروفات الثابتة -->
+  <section class="card" id="fixedExpenses">
+    <h2>🧾 المصروفات الثابتة <img src="https://img.icons8.com/color/48/000000/home--v1.png"/></h2>
+    <ul>
+      <li>🏠 الإيجار: <input type="number" id="rent" value="8000" /></li>
+      <li>🚗 المواصلات: <input type="number" id="transport" value="2500" /></li>
+      <li>💡 كهرباء: <input type="number" id="electricity" value="800" /></li>
+      <li>💳 دين: <input type="number" id="debt" value="1000" /></li>
+    </ul>
+    <div class="progress-container">
+      <label>المصروفات الثابتة:</label>
+      <div class="progress-bar" id="fixedProgress"></div>
+    </div>
+    <p>إجمالي المصروفات الثابتة: <span id="totalFixed">0</span> جنيه</p>
+  </section>
+
+  <!-- المصروفات المتغيرة -->
+  <section class="card" id="variableExpenses">
+    <h2>🧺 مصروفات البيت المتغيرة <img src="https://img.icons8.com/color/48/000000/shopping-cart.png"/></h2>
+    <ul>
+      <li>🍞 أكل البيت: <input type="number" id="food" /></li>
+      <li>🧼 نظافة واحتياجات: <input type="number" id="cleaning" /></li>
+      <li>🍱 غدا: <input type="number" id="lunch" /></li>
+      <li>🚸 مصاريف الأولاد: <input type="number" id="kids" /></li>
+    </ul>
+    <div class="progress-container">
+      <label>المصروفات المتغيرة:</label>
+      <div class="progress-bar" id="variableProgress"></div>
+    </div>
+    <p>إجمالي مصروفات البيت: <span id="totalVariable">0</span> جنيه</p>
+  </section>
+
+  <!-- الاستثمار -->
+  <section class="card" id="investment">
+    <h2>📈 الاستثمار الشهري <img src="https://img.icons8.com/color/48/000000/stock-investment.png"/></h2>
+    <label>💰 مبلغ الاستثمار الشهري: 
+      <input type="number" id="monthlyInvestment" placeholder="أدخل المبلغ"/>
+    </label>
+    <div class="progress-container">
+      <label>Copy Trading:</label>
+      <div class="progress-bar" id="copyTradingProgress"></div>
+    </div>
+    <div class="progress-container">
+      <label>ETFs مضمونة:</label>
+      <div class="progress-bar" id="etfProgress"></div>
+    </div>
+    <p>Copy Trading: <span id="copyTradingAmount">0</span> جنيه</p>
+    <p>ETFs: <span id="etfAmount">0</span> جنيه</p>
+  </section>
+
+  <!-- الملخص والتنبيهات -->
+  <section class="card" id="summary">
+    <h2>⚠️ الملخص والتنبيهات <img src="https://img.icons8.com/color/48/000000/alarm.png"/></h2>
+    <p>إجمالي المصروفات الشهرية: <span id="totalExpenses">0</span> جنيه</p>
+    <p>الرصيد المتبقي: <span id="balance">0</span> جنيه</p>
+    <div class="progress-container">
+      <label>الرصيد المتبقي:</label>
+      <div class="progress-bar" id="balanceProgress"></div>
+    </div>
+    <p id="notificationText"></p>
+  </section>
+
+  <!-- حدود يومية وأسبوعية -->
+  <section class="card" id="limits">
+    <h2>📊 الحدود اليومية والأسبوعية <img src="https://img.icons8.com/color/48/000000/clock--v1.png"/></h2>
+    <label>الحد اليومي للمصروفات: <input type="number" id="dailyLimit" placeholder="أدخل الحد اليومي"/></label><br><br>
+    <label>الحد الأسبوعي للمصروفات: <input type="number" id="weeklyLimit" placeholder="أدخل الحد الأسبوعي"/></label>
+  </section>
+
+</div>
+
+<script>
+// ===== تحميل البيانات من التخزين المحلي =====
+window.onload = function() {
+    const fields = ['rent','transport','electricity','debt','food','cleaning','lunch','kids','dailyLimit','weeklyLimit','monthlyInvestment'];
+    fields.forEach(id => {
+        if(localStorage.getItem(id)) document.getElementById(id).value = localStorage.getItem(id);
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('input', updateExpenses);
+    });
+    updateExpenses();
+};
+
+// ===== حساب المصروفات والإجماليات =====
+function updateExpenses() {
+    const rent = Number(document.getElementById('rent').value);
+    const transport = Number(document.getElementById('transport').value);
+    const electricity = Number(document.getElementById('electricity').value);
+    const debt = Number(document.getElementById('debt').value);
+    const food = Number(document.getElementById('food').value);
+    const cleaning = Number(document.getElementById('cleaning').value);
+    const lunch = Number(document.getElementById('lunch').value);
+    const kids = Number(document.getElementById('kids').value);
+    const dailyLimit = Number(document.getElementById('dailyLimit').value) || 0;
+    const weeklyLimit = Number(document.getElementById('weeklyLimit').value) || 0;
+    const monthlyInvestment = Number(document.getElementById('monthlyInvestment').value) || 0;
+
+    const fields = {rent,transport,electricity,debt,food,cleaning,lunch,kids,dailyLimit,weeklyLimit,monthlyInvestment};
+    for(let key in fields) localStorage.setItem(key, fields[key]);
+
+    const totalFixed = rent + transport + electricity + debt;
+    const totalVariable = food + cleaning + lunch + kids;
+    const totalExpenses = totalFixed + totalVariable;
+    const totalIncome = 22000;
+    const balance = totalIncome - totalExpenses - monthlyInvestment;
+
+    document.getElementById('totalFixed').innerText = totalFixed;
+    document.getElementById('totalVariable').innerText = totalVariable;
+    document.getElementById('totalExpenses').innerText = totalExpenses;
+    document.getElementById('balance').innerText = balance;
+
+    // ===== حساب الاستثمار نصف/نصف =====
+    const copyTrading = monthlyInvestment / 2;
+    const etf = monthlyInvestment / 2;
+    document.getElementById('copyTradingAmount').innerText = copyTrading;
+    document.getElementById('etfAmount').innerText = etf;
+
+    updateProgressBars(totalFixed, totalVariable, totalIncome, balance, copyTrading, etf);
+    checkNotifications(balance, electricity, totalVariable, dailyLimit, weeklyLimit);
+}
+
+// ===== أشرطة التقدم =====
+function updateProgressBars(totalFixed, totalVariable, totalIncome, balance, copyTrading=0, etf=0) {
+    let fixedPercent = (totalFixed / totalIncome) * 100;
+    let variablePercent = (totalVariable / totalIncome) * 100;
+    let balancePercent = (balance / totalIncome) * 100;
+    let copyPercent = (copyTrading / totalIncome) * 100;
+    let etfPercent = (etf / totalIncome) * 100;
+
+    document.getElementById('fixedProgress').style.width = fixedPercent + "%";
+    document.getElementById('variableProgress').style.width = variablePercent + "%";
+    document.getElementById('balanceProgress').style.width = balancePercent + "%";
+    document.getElementById('copyTradingProgress').style.width = copyPercent + "%";
+    document.getElementById('etfProgress').style.width = etfPercent + "%";
+
+    document.getElementById('fixedProgress').style.backgroundColor = fixedPercent < 50 ? "#27ae60" : fixedPercent < 80 ? "#f1c40f" : "#e74c3c";
+    document.getElementById('variableProgress').style.backgroundColor = variablePercent < 50 ? "#27ae60" : variablePercent < 80 ? "#f1c40f" : "#e74c3c";
+    document.getElementById('balanceProgress').style.backgroundColor = balancePercent > 50 ? "#27ae60" : balancePercent > 20 ? "#f1c40f" : "#e74c3c";
+    document.getElementById('copyTradingProgress').style.backgroundColor = "#3498db";
+    document.getElementById('etfProgress').style.backgroundColor = "#9b59b6";
+}
+
+// ===== التنبيهات =====
+function checkNotifications(balance, electricity, totalVariable, dailyLimit, weeklyLimit) {
+    let messages = [];
+    if(balance < 0) messages.push("⚠️ لقد تجاوزت الحد الشهري للمصروفات!");
+    if(electricity < 200) messages.push("💡 كهرباء: الرصيد منخفض، يرجى إعادة الشحن!");
+    if(dailyLimit > 0 && totalVariable > dailyLimit) messages.push("⚠️ تجاوزت الحد اليومي للمصروفات المتغيرة!");
+    if(weeklyLimit > 0 && totalVariable > weeklyLimit) messages.push("⚠️ تجاوزت الحد الأسبوعي للمصروفات المتغيرة!");
+
+    document.getElementById('notificationText').innerHTML = messages.join('<br>');
+
+    if(messages.length > 0 && "Notification" in window) {
+        if(Notification.permission === "granted") {
+            messages.forEach(msg => new Notification(msg));
+        } else if(Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if(permission === "granted") messages.forEach(msg => new Notification(msg));
+            });
+        }
+    }
+}
+
+// ===== الطباعة =====
+document.getElementById('printBtn').addEventListener('click', () => { window.print(); });
+</script>
+</body>
+</html>
