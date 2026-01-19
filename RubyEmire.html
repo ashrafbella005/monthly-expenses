@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roby Card</title>
+
+<style>
+/* ========== RESET ========== */
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* ========== BODY ========== */
+body {
+  background: radial-gradient(circle at top, #2a003a, #0a0012 70%);
+  color: #fff;
+  min-height: 100vh;
+}
+
+/* ========== HEADER ========== */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+}
+
+.logo {
+  font-size: 26px;
+  font-weight: bold;
+  color: #b86cff;
+  text-shadow: 0 0 15px #7a2cff;
+}
+
+.controls button {
+  background: linear-gradient(135deg, #7a2cff, #c44bff);
+  border: none;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-left: 10px;
+  box-shadow: 0 0 15px rgba(186, 90, 255, 0.6);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.controls button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(200, 120, 255, 1);
+}
+
+/* ========== HERO ========== */
+.hero {
+  margin: 20px;
+  padding: 25px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #5a167a, #2b003b);
+  box-shadow: 0 0 40px rgba(150, 70, 255, 0.5);
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.hero p {
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+/* ========== GRID ========== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 18px;
+  padding: 20px;
+}
+
+/* ========== CARD ========== */
+.card {
+  position: relative;
+  height: 160px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1a0028, #32004d);
+  box-shadow:
+    inset 0 0 30px rgba(120, 60, 255, 0.15),
+    0 20px 40px rgba(0,0,0,0.7);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(200,120,255,0.4), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card:hover {
+  transform: translateY(-8px) scale(1.04);
+  box-shadow: 0 0 45px rgba(180, 90, 255, 0.8);
+}
+
+/* ========== CARD CONTENT ========== */
+.card-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+}
+
+.card img {
+  width: 60px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 15px #a86cff);
+}
+
+.card h3 {
+  font-size: 16px;
+}
+
+/* ========== FOOTER ========== */
+footer {
+  text-align: center;
+  padding: 15px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* ========== MOTION EFFECT ========== */
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+.card {
+  animation: float 5s ease-in-out infinite;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">RC Roby Card</div>
+  <div class="controls">
+    <button onclick="setLang('ar')">AR</button>
+    <button onclick="setLang('en')">EN</button>
+  </div>
+</header>
+
+<section class="hero">
+  <h1 id="title">اشحن الألعاب والتطبيقات من مكان واحد</h1>
+  <p id="subtitle">خدمات رقمية – كروت – دعم السوشيال ميديا</p>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <div class="card-content">
+      <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png">
+      <h3 id="mobile">موبايل</h3>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content">
+      <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png">
+      <h3 id="social">دعم السوشيال ميديا</h3>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content">
+      <img src="https://cdn-icons-png.flaticon.com/512/5968/5968705.png">
+      <h3 id="cards">قسم الكروت</h3>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content">
+      <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png">
+      <h3 id="stream">ستريم</h3>
+    </div>
+  </div>
+</section>
+
+<footer>
+  © 2026 Roby Card
+</footer>
+
+<script>
+const content = {
+  ar: {
+    dir: "rtl",
+    title: "اشحن الألعاب والتطبيقات من مكان واحد",
+    subtitle: "خدمات رقمية – كروت – دعم السوشيال ميديا",
+    mobile: "موبايل",
+    social: "دعم السوشيال ميديا",
+    cards: "قسم الكروت",
+    stream: "ستريم"
+  },
+  en: {
+    dir: "ltr",
+    title: "Recharge games and apps from one place",
+    subtitle: "Digital services – Cards – Social media boost",
+    mobile: "Mobile",
+    social: "Social Media",
+    cards: "Gift Cards",
+    stream: "Streaming"
+  }
+};
+
+function setLang(lang) {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = content[lang].dir;
+  for (let key in content[lang]) {
+    if (document.getElementById(key)) {
+      document.getElementById(key).innerText = content[lang][key];
+    }
+  }
+}
+</script>
+
+</body>
+</html>
